@@ -1,1 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StudyCraft AI - Smart Study Guide & Quiz Engine</title>
+    <!-- Tailwind CSS CDN for sleek UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js CDN for extracting text from uploaded PDF files -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+    </script>
+    <style>
+        .perspective { perspective: 1000px; }
+        .transform-style-3d { transform-style: preserve-3d; }
+        .backface-hidden { backface-visibility: hidden; }
+        .rotate-y-180 { transform: rotateY(180deg); }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen font-sans flex flex-col justify-between">
 
+    <!-- Header / Navigation -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 text-white p-2 rounded-xl font-bold text-xl">🎓</div>
+                <h1 class="text-2xl font-bold tracking-tight text-white">StudyCraft <span class="text-indigo-400">AI</span></h1>
+            </div>
+            <div class="text-xs text-slate-400 bg-slate-800 px-3 py-1 rounded-full border border-slate-700">
+                Client-Side Engine • 100% Private
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="max-w-4xl mx-auto px-6 py-8 w-full flex-grow">
+
+        <!-- Progress Steps Tracker -->
+        <div class="grid grid-cols-3 gap-2 mb-8 text-center text-xs font-semibold text-slate-400">
+            <div id="step-1-indicator" class="py-2 border-b-2 border-indigo-500 text-indigo-400">1. Import Material</div>
+            <div id="step-2-indicator" class="py-2 border-b-2 border-slate-700">2. Review Study Guide</div>
+            <div id="step-3-indicator" class="py-2 border-b-2 border-slate-700">3. Knowledge Quiz</div>
+        </div>
+
+        <!-- SECTION 1: Material Importer -->
+        <section id="import-section" class="space-y-6">
+            <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 shadow-xl">
+                <h2 class="text-2xl font-bold mb-2 text-white">Import Your Study Material</h2>
+                <p class="text-slate-400 text-sm mb-6">Upload a PDF/text file or paste your lecture notes below to automatically generate your study guide and self-assessment test.</p>
+                
+                <!-- File Drop Zone -->
+                <div class="border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 text-center transition cursor-pointer bg-slate-900/40 mb-4" id="drop-zone">
+                    <input type="file" id="file-input" accept=".txt,.md,.pdf" class="hidden">
+                    <div class="text-3xl mb-2">📄</div>
+                    <p class="text-sm text-slate-300 font-medium">Click to upload or drag & drop a PDF, TXT, or MD file</p>
+                    <p class="text-xs text-slate-500 mt-1" id="file-name">Supports standard PDF lecture slides and text notes</p>
+                </div>
+
+                <div class="text-center text-xs text-slate-500 font-semibold my-3">OR PASTE TEXT DIRECTLY</div>
+
+                <!-- Textarea input -->
+                <textarea id="text-input" rows="8" placeholder="Paste lecture notes, study guide topics, or textbook chapters here..." class="w-full bg-slate-900 border border-slate-700 rounded-xl p-4 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 transition resize-none"></textarea>
+
+                <button id="process-btn" onclick="processMaterial()" class="w-full mt-6 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3.5 px-6 rounded-xl transition shadow-lg shadow-indigo-600/30 flex justify-center items-center gap-2">
+                    <span>Generate Study Guide & Quiz</span> 🚀
+                </button>
+            </div>
+        </section>
+
+        <!-- SECTION 2: Study Guide View -->
+        <section id="guide-section" class="hidden space-y-8">
+            <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-white">Your Custom Study Guide</h2>
+                <button onclick="goToQuiz()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold py-2.5 px-5 rounded-xl transition shadow-lg shadow-emerald-600/20">
+                    Start Knowledge Quiz 📝
+                </button>
+            </div>
+
+            <!-- Key Summary Card -->
+            <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                <h3 class="text-lg font-semibold text-indigo-400 mb-3 flex items-center gap-2">📌 Key Takeaways & Summary</h3>
+                <div id="summary-content" class="text-slate-300 text-sm leading-relaxed space-y-2"></div>
+            </div>
+
+            <!-- Interactive Flashcards -->
+            <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-6 shadow-xl">
+                <h3 class="text-lg font-semibold text-indigo-400 mb-4 flex items-center gap-2">💡 Core Concept Flashcards</h3>
+                <div class="perspective w-full h-48 cursor-pointer" onclick="flipCard()">
+                    <div id="flashcard" class="relative w-full h-full transform-style-3d transition-transform duration-500 rounded-xl bg-slate-900 border border-slate-700 p-6 flex items-center justify-center text-center">
+                        <div id="card-front" class="absolute backface-hidden font-medium text-slate-100 text-lg px-4">Loading front...</div>
+                        <div id="card-back" class="absolute backface-hidden rotate-y-180 font-normal text-indigo-300 text-sm px-4">Loading back...</div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-4">
+                    <button onclick="prevCard()" class="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900">← Previous</button>
+                    <span id="card-counter" class="text-xs text-slate-500 font-mono">1 / 5</span>
+                    <button onclick="nextCard()" class="text-xs text-slate-400 hover:text-white px-3 py-1.5 rounded-lg border border-slate-700 bg-slate-900">Next →</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: Quiz View -->
+        <section id="quiz-section" class="hidden space-y-6">
+            <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 shadow-xl">
+                <div class="flex justify-between items-center mb-6">
+                    <span id="question-tracker" class="text-xs font-mono bg-indigo-950 text-indigo-300 border border-indigo-800 px-3 py-1 rounded-full">Question 1</span>
+                    <span id="quiz-score-live" class="text-xs text-slate-400">Score: 0</span>
+                </div>
+
+                <h3 id="question-text" class="text-xl font-semibold text-white mb-6">Loading question...</h3>
+
+                <div id="options-container" class="space-y-3"></div>
+
+                <div id="explanation-box" class="hidden mt-6 p-4 rounded-xl border text-sm"></div>
+
+                <button id="next-q-btn" onclick="nextQuestion()" class="hidden w-full mt-6 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-6 rounded-xl transition">
+                    Next Question →
+                </button>
+            </div>
+        </section>
+
+        <!-- SECTION 4: Quiz Results & Readiness Score -->
+        <section id="results-section" class="hidden space-y-6 text-center">
+            <div class="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 shadow-xl">
+                <div class="text-5xl mb-4">🏆</div>
+                <h2 class="text-3xl font-bold text-white mb-2">Quiz Completed!</h2>
+                <p class="text-slate-400 text-sm mb-6">Here is your readiness report based on the material studied.</p>
+
+                <div class="inline-flex items-center justify-center w-36 h-36 rounded-full border-4 border-indigo-500 bg-slate-900 my-4">
+                    <div>
+                        <div id="final-percentage" class="text-3xl font-bold text-indigo-400">0%</div>
+                        <div class="text-xs text-slate-500 uppercase tracking-widest mt-1">Mastery</div>
+                    </div>
+                </div>
+
+                <p id="feedback-message" class="text-slate-300 text-sm max-w-md mx-auto my-4"></p>
+
+                <div class="flex justify-center gap-4 mt-8">
+                    <button onclick="restartQuiz()" class="bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold py-2.5 px-5 rounded-xl transition">Retake Quiz</button>
+                    <button onclick="resetApp()" class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold py-2.5 px-5 rounded-xl transition">Study New Material</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 py-4 text-center text-xs text-slate-600">
+        StudyCraft AI • Autonomous Client-Side Learning Platform
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // State variables
+        let extractedText = "";
+        let flashcards = [];
+        let currentCardIdx = 0;
+        let isFlipped = false;
+
+        let quizQuestions = [];
+        let currentQuestionIdx = 0;
+        let userScore = 0;
+        let optionSelected = false;
+
+        // File Drag & Drop & Upload Handlers
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-500'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-indigo-500'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-indigo-500');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+        async function handleFile(file) {
+            document.getElementById('file-name').innerText = `Selected: ${file.name}`;
+            if (file.type === "application/pdf" || file.name.endsWith('.pdf')) {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                let text = "";
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    text += content.items.map(item => item.str).join(" ") + "\n";
+                }
+                extractedText = text;
+            } else {
+                extractedText = await file.text();
+            }
+            document.getElementById('text-input').value = extractedText.substring(0, 1000) + "... (File Loaded)";
+        }
+
+        // Process Study Material
+        function processMaterial() {
+            const rawText = extractedText || document.getElementById('text-input').value.trim();
+            if (!rawText || rawText.length < 30) {
+                alert("Please upload a file or paste at least 30 characters of study notes.");
+                return;
+            }
+            extractedText = rawText;
+
+            // Generate Study Guide & Summary
+            generateGuide(extractedText);
+            
+            // Generate Quiz Questions
+            generateQuiz(extractedText);
+
+            // Switch to Guide View
+            document.getElementById('import-section').classList.add('hidden');
+            document.getElementById('guide-section').classList.remove('hidden');
+
+            document.getElementById('step-1-indicator').className = "py-2 border-b-2 border-slate-700 text-slate-500";
+            document.getElementById('step-2-indicator').className = "py-2 border-b-2 border-indigo-500 text-indigo-400";
+        }
+
+        function generateGuide(text) {
+            // Clean sentences
+            const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+            
+            // Summary: Take key sentences
+            const summarySentences = sentences.slice(0, Math.min(5, sentences.length));
+            const summaryHTML = summarySentences.map(s => `<p class="flex items-start gap-2"><span>•</span><span>${s.trim()}</span></p>`).join("");
+            document.getElementById('summary-content').innerHTML = summaryHTML;
+
+            // Flashcards: Extract key terms/sentences
+            flashcards = [];
+            for (let i = 0; i < sentences.length && flashcards.length < 5; i++) {
+                const s = sentences[i].trim();
+                if (s.length > 25) {
+                    const words = s.split(" ");
+                    const concept = words.slice(0, Math.min(4, words.length)).join(" ");
+                    flashcards.push({ front: `What is the significance of "${concept}..."?`, back: s });
+                }
+            }
+            if (flashcards.length === 0) {
+                flashcards.push({ front: "Core Material Concept", back: text.substring(0, 150) + "..." });
+            }
+
+            currentCardIdx = 0;
+            updateCardDisplay();
+        }
+
+        function updateCardDisplay() {
+            isFlipped = false;
+            document.getElementById('flashcard').classList.remove('rotate-y-180');
+            document.getElementById('card-front').innerText = flashcards[currentCardIdx].front;
+            document.getElementById('card-back').innerText = flashcards[currentCardIdx].back;
+            document.getElementById('card-counter').innerText = `${currentCardIdx + 1} / ${flashcards.length}`;
+        }
+
+        function flipCard() {
+            isFlipped = !isFlipped;
+            const fc = document.getElementById('flashcard');
+            if (isFlipped) fc.classList.add('rotate-y-180');
+            else fc.classList.remove('rotate-y-180');
+        }
+
+        function nextCard() {
+            currentCardIdx = (currentCardIdx + 1) % flashcards.length;
+            updateCardDisplay();
+        }
+
+        function prevCard() {
+            currentCardIdx = (currentCardIdx - 1 + flashcards.length) % flashcards.length;
+            updateCardDisplay();
+        }
+
+        // Quiz Generator Algorithm
+        function generateQuiz(text) {
+            const sentences = (text.match(/[^.!?]+[.!?]+/g) || [text]).map(s => s.trim()).filter(s => s.length > 30);
+            quizQuestions = [];
+
+            // Extract terms for distractors
+            const allWords = Array.from(new Set(text.match(/\b[A-Z][a-z]{3,}\b/g) || ["Analysis", "Theory", "Concept", "Process", "System"]));
+
+            for (let i = 0; i < Math.min(5, sentences.length); i++) {
+                const sentence = sentences[i];
+                const words = sentence.split(" ");
+                const targetIdx = Math.floor(words.length / 2);
+                const targetWord = words[targetIdx].replace(/[^a-zA-Z]/g, "");
+
+                if (targetWord.length < 3) continue;
+
+                // Blank out the word
+                words[targetIdx] = "______";
+                const questionText = words.join(" ");
+
+                // Create choices
+                const distractors = allWords.filter(w => w.toLowerCase() !== targetWord.toLowerCase()).slice(0, 3);
+                while (distractors.length < 3) distractors.push(["Framework", "Factor", "Variable", "Method"][distractors.length]);
+
+                const options = [targetWord, ...distractors].sort(() => Math.random() - 0.5);
+
+                quizQuestions.push({
+                    question: `Fill in the missing key term: "${questionText}"`,
+                    options: options,
+                    correct: targetWord,
+                    explanation: `Full sentence: "${sentence}"`
+                });
+            }
+
+            // Fallback if text was short
+            if (quizQuestions.length === 0) {
+                quizQuestions.push({
+                    question: "Did you thoroughly review the study material summary provided?",
+                    options: ["Yes, completely", "Partially", "No, need review", "Unsure"],
+                    correct: "Yes, completely",
+                    explanation: "Self-assessment helps lock in memory retention."
+                });
+            }
+        }
+
+        function goToQuiz() {
+            document.getElementById('guide-section').classList.add('hidden');
+            document.getElementById('quiz-section').classList.remove('hidden');
+
+            document.getElementById('step-2-indicator').className = "py-2 border-b-2 border-slate-700 text-slate-500";
+            document.getElementById('step-3-indicator').className = "py-2 border-b-2 border-indigo-500 text-indigo-400";
+
+            currentQuestionIdx = 0;
+            userScore = 0;
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            optionSelected = false;
+            document.getElementById('explanation-box').classList.add('hidden');
+            document.getElementById('next-q-btn').classList.add('hidden');
+
+            const q = quizQuestions[currentQuestionIdx];
+            document.getElementById('question-tracker').innerText = `Question ${currentQuestionIdx + 1} of ${quizQuestions.length}`;
+            document.getElementById('quiz-score-live').innerText = `Score: ${userScore}`;
+            document.getElementById('question-text').innerText = q.question;
+
+            const optsContainer = document.getElementById('options-container');
+            optsContainer.innerHTML = "";
+
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left bg-slate-900 border border-slate-700 hover:border-indigo-500 p-4 rounded-xl text-sm font-medium text-slate-200 transition flex justify-between items-center";
+                btn.innerText = opt;
+                btn.onclick = () => selectOption(btn, opt, q.correct, q.explanation);
+                optsContainer.appendChild(btn);
+            });
+        }
+
+        function selectOption(btnElement, selectedOpt, correctOpt, explanation) {
+            if (optionSelected) return;
+            optionSelected = true;
+
+            const isCorrect = selectedOpt.toLowerCase() === correctOpt.toLowerCase();
+            if (isCorrect) {
+                userScore++;
+                btnElement.classList.add('bg-emerald-950', 'border-emerald-500', 'text-emerald-200');
+            } else {
+                btnElement.classList.add('bg-rose-950', 'border-rose-500', 'text-rose-200');
+            }
+
+            // Highlight correct answer
+            const buttons = document.getElementById('options-container').querySelectorAll('button');
+            buttons.forEach(b => {
+                if (b.innerText.toLowerCase() === correctOpt.toLowerCase()) {
+                    b.classList.add('bg-emerald-950', 'border-emerald-500', 'text-emerald-200');
+                }
+            });
+
+            const expBox = document.getElementById('explanation-box');
+            expBox.classList.remove('hidden');
+            expBox.className = `mt-6 p-4 rounded-xl border text-sm ${isCorrect ? 'bg-emerald-950/40 border-emerald-800 text-emerald-300' : 'bg-rose-950/40 border-rose-800 text-rose-300'}`;
+            expBox.innerText = (isCorrect ? "Correct! " : "Incorrect. ") + explanation;
+
+            document.getElementById('quiz-score-live').innerText = `Score: ${userScore}`;
+            document.getElementById('next-q-btn').classList.remove('hidden');
+        }
+
+        function nextQuestion() {
+            currentQuestionIdx++;
+            if (currentQuestionIdx < quizQuestions.length) {
+                loadQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        function showResults() {
+            document.getElementById('quiz-section').classList.add('hidden');
+            document.getElementById('results-section').classList.remove('hidden');
+
+            const percentage = Math.round((userScore / quizQuestions.length) * 100);
+            document.getElementById('final-percentage').innerText = `${percentage}%`;
+
+            let msg = "";
+            if (percentage >= 80) msg = "Excellent job! You demonstrated strong retention and mastery over the core material concepts.";
+            else if (percentage >= 50) msg = "Good effort! You grasp the main concepts, but reviewing the key study guide summary again will help solidify your knowledge.";
+            else msg = "Consider re-reading your notes and retaking the quiz to strengthen your recall on missing key terms.";
+
+            document.getElementById('feedback-message').innerText = msg;
+        }
+
+        function restartQuiz() {
+            document.getElementById('results-section').classList.add('hidden');
+            goToQuiz();
+        }
+
+        function resetApp() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>
